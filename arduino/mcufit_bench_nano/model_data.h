@@ -1,8 +1,14 @@
 #pragma once
 
-// The person_detect model, baked into flash. Generated from
-// models/person_detect.tflite by scripts/gen_model_array.py.
+// Models baked into flash, generated from models/*.tflite by
+// scripts/gen_model_array.py.
 
-extern const unsigned char g_model[];
-extern const unsigned int g_model_len;
-extern const char g_model_sha256[];
+#define MCUFIT_MODEL(sym)                    \
+  extern const unsigned char g_##sym[];      \
+  extern const unsigned int g_##sym##_len;   \
+  extern const char g_##sym##_sha256[];
+
+MCUFIT_MODEL(person_detect)
+MCUFIT_MODEL(kws)
+MCUFIT_MODEL(ic_resnet)
+MCUFIT_MODEL(ad)

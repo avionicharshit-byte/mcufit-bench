@@ -1,4 +1,4 @@
-// Times a TFLite Micro inference on a Nano 33 BLE and prints one JSON record.
+// Times TFLite Micro inference on a Nano 33 BLE, one JSON record per model.
 // Same measurement as main/main.cc, different chip.
 
 #include <Chirale_TensorFlowLite.h>
@@ -18,7 +18,19 @@ constexpr int kTimedRuns = 30;
 
 alignas(16) uint8_t g_arena[kArenaBytes];
 
-tflite::MicroInterpreter* g_interpreter = nullptr;
+struct Model {
+  const char* name;
+  const unsigned char* data;
+  unsigned int len;
+  const char* sha256;
+};
+
+const Model kModels[] = {
+    {"person_detect.tflite", g_person_detect, g_person_detect_len, g_person_detect_sha256},
+    {"kws_ref_model.tflite", g_kws, g_kws_len, g_kws_sha256},
+    {"pretrainedResnet_quant.tflite", g_ic_resnet, g_ic_resnet_len, g_ic_resnet_sha256},
+    {"ad01_int8.tflite", g_ad, g_ad_len, g_ad_sha256},
+};
 
 void sortAscending(uint32_t* v, int n) {
   for (int i = 1; i < n; ++i) {
@@ -29,38 +41,30 @@ void sortAscending(uint32_t* v, int n) {
   }
 }
 
-}  // namespace
-
-void setup() {
-  Serial.begin(115200);
-  // Native USB: block until the host opens the port, or the run is printed
-  // to nobody and lost.
-  while (!Serial) {}
-  delay(200);
-
-  Serial.println();
-  Serial.println("mcufit-bench: nRF52840 (Nano 33 BLE), 64 MHz");
-
-  const tflite::Model* model = tflite::GetModel(g_model);
+void runOne(const Model& m) {
+  const tflite::Model* model = tflite::GetModel(m.data);
   if (model->version() != TFLITE_SCHEMA_VERSION) {
-    Serial.println("FATAL: schema mismatch");
+    Serial.print("SKIP schema "); Serial.println(m.name);
     return;
   }
 
-  // The five operators person_detect uses.
-  static tflite::MicroMutableOpResolver<5> resolver;
-  resolver.AddConv2D();
-  resolver.AddDepthwiseConv2D();
-  resolver.AddAveragePool2D();
-  resolver.AddReshape();
-  resolver.AddSoftmax();
+  // Union of the operators across all four models.
+  static tflite::MicroMutableOpResolver<7> resolver;
+  static bool built = false;
+  if (!built) {
+    resolver.AddConv2D();
+    resolver.AddDepthwiseConv2D();
+    resolver.AddFullyConnected();
+    resolver.AddAveragePool2D();
+    resolver.AddAdd();
+    resolver.AddReshape();
+    resolver.AddSoftmax();
+    built = true;
+  }
 
-  static tflite::MicroInterpreter interpreter(model, resolver, g_arena, kArenaBytes);
-  g_interpreter = &interpreter;
-
+  tflite::MicroInterpreter interpreter(model, resolver, g_arena, kArenaBytes);
   if (interpreter.AllocateTensors() != kTfLiteOk) {
-    Serial.print("FATAL: AllocateTensors failed with arena ");
-    Serial.println((unsigned)kArenaBytes);
+    Serial.print("SKIP alloc "); Serial.println(m.name);
     return;
   }
 
@@ -78,8 +82,7 @@ void setup() {
     const TfLiteStatus status = interpreter.Invoke();
     const uint32_t elapsed = micros() - start;
     if (status != kTfLiteOk) {
-      Serial.print("FATAL: Invoke failed on run ");
-      Serial.println(i);
+      Serial.print("SKIP invoke "); Serial.println(m.name);
       return;
     }
     samples[i] = elapsed;
@@ -87,10 +90,9 @@ void setup() {
   }
   sortAscending(samples, kTimedRuns);
 
-  // One JSON line, ready to append to results/results.jsonl.
-  Serial.print("\nMCUFIT_RESULT {\"schema\":1,\"model\":\"person_detect.tflite\"");
-  Serial.print(",\"model_sha256\":\""); Serial.print(g_model_sha256); Serial.print("\"");
-  Serial.print(",\"model_bytes\":"); Serial.print(g_model_len);
+  Serial.print("\nMCUFIT_RESULT {\"schema\":1,\"model\":\""); Serial.print(m.name);
+  Serial.print("\",\"model_sha256\":\""); Serial.print(m.sha256);
+  Serial.print("\",\"model_bytes\":"); Serial.print(m.len);
   Serial.print(",\"target\":\"nano33ble\",\"chip\":\"nRF52840\",\"cores\":1");
   Serial.print(",\"cpu_mhz\":64,\"kernels\":\"cmsis-nn-or-reference\"");
   Serial.print(",\"opt_level\":\"arduino-default\"");
@@ -102,10 +104,27 @@ void setup() {
   Serial.print(",\"max_us\":"); Serial.print(samples[kTimedRuns - 1]);
   Serial.println("}");
 
-  Serial.print("\nmedian "); Serial.print(samples[kTimedRuns / 2] / 1000);
-  Serial.println(" ms per inference");
-  Serial.print("arena actually used: "); Serial.println((unsigned)arenaUsed);
-  Serial.println("done. copy the MCUFIT_RESULT line above.");
+  Serial.print(m.name); Serial.print(": median ");
+  Serial.print(samples[kTimedRuns / 2] / 1000);
+  Serial.print(" ms, arena "); Serial.println((unsigned)arenaUsed);
+}
+
+}  // namespace
+
+void setup() {
+  Serial.begin(115200);
+  // Native USB: block until the host opens the port, or the run is printed
+  // to nobody and lost.
+  while (!Serial) {}
+  delay(200);
+
+  Serial.println();
+  Serial.println("mcufit-bench: nRF52840 (Nano 33 BLE), 64 MHz");
+
+  for (const Model& m : kModels) runOne(m);
+
+  Serial.println();
+  Serial.println("done. 4 models.");
 }
 
 void loop() {}
