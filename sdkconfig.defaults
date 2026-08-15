@@ -1,24 +1,22 @@
-# Shared settings. Both builds get these, so the only difference between the
-# fast and slow binaries is the kernel library. Anything else in here that
-# changed would invalidate the comparison.
+# Shared by both builds, so the kernel library is the only difference between
+# them. Changing anything here invalidates the comparison.
 
 CONFIG_IDF_TARGET="esp32"
 
-# Full speed. The default is 160 MHz, which would quietly cost 33%.
+# Default is 160 MHz.
 CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
 
-# Optimise for performance. A debug build measures the compiler, not the chip.
+# A debug build measures the compiler, not the chip.
 CONFIG_COMPILER_OPTIMIZATION_PERF=y
 
-# 300 KB of model plus TFLM does not fit the default 1 MB app partition
-# comfortably.
+# 300 KB model + TFLM overflows the default 1 MB app partition.
 CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
 CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
 
-# The ANSI-C build takes ~4 s per inference. Default watchdogs would kill it.
+# Inferences are seconds long; default watchdogs would kill the run.
 CONFIG_ESP_TASK_WDT_TIMEOUT_S=60
 CONFIG_ESP_INT_WDT_TIMEOUT_MS=1000
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
 
-# 1 ms ticks so the 10 ms yield between runs is actually 10 ms.
+# 1 ms ticks so the yield between runs is actually 10 ms.
 CONFIG_FREERTOS_HZ=1000

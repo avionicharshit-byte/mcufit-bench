@@ -1,10 +1,4 @@
 // Times a TFLite Micro inference on real silicon and prints one JSON record.
-//
-// The point: mcufit predicts latency from a per-board fudge factor
-// (macs_per_cycle). Espressif's own figures say person_detect runs in 380 ms
-// on an ESP32 with ESP-NN and 4084 ms without, on the same chip at the same
-// clock. If that holds, latency is not a property of the board at all and the
-// estimator is the wrong shape. This measures it.
 
 #include <algorithm>
 #include <cinttypes>
@@ -29,15 +23,13 @@
 
 namespace {
 
-// person_detect measures 89,248 B on host. Round up and leave room so an
-// allocation failure means something real, not a stingy arena.
+// Generous: an allocation failure should mean something real, not a small arena.
 constexpr size_t kArenaBytes = 136 * 1024;
 constexpr int kWarmupRuns = 3;
 constexpr int kTimedRuns = 30;
 
 alignas(16) uint8_t g_arena[kArenaBytes];
 
-// Which maths kernels got compiled in. This is the whole experiment.
 #if defined(CONFIG_NN_OPTIMIZED)
 constexpr const char* kKernels = "esp-nn-optimized";
 #elif defined(CONFIG_NN_ANSI_C)
@@ -92,8 +84,7 @@ extern "C" void app_main(void) {
     return;
   }
 
-  // The five operators person_detect actually uses. Listing them instead of
-  // pulling in every kernel keeps flash honest.
+  // The five operators person_detect uses.
   tflite::MicroMutableOpResolver<5> resolver;
   resolver.AddConv2D();
   resolver.AddDepthwiseConv2D();
@@ -110,7 +101,7 @@ extern "C" void app_main(void) {
 
   const size_t arena_used = interpreter.arena_used_bytes();
   TfLiteTensor* input = interpreter.input(0);
-  // A blank frame. Content does not change the work done, only the answer.
+  // Content does not change the work done, only the answer.
   std::memset(input->data.data, 0, input->bytes);
 
   for (int i = 0; i < kWarmupRuns; ++i) {
@@ -129,8 +120,7 @@ extern "C" void app_main(void) {
       return;
     }
     samples.push_back(elapsed);
-    // Yield so the idle task lives and the watchdog stays quiet. The slow
-    // build takes ~4 s per run, which is long enough to matter.
+    // Yield or the task watchdog fires on long inferences.
     vTaskDelay(pdMS_TO_TICKS(10));
   }
 
@@ -141,8 +131,7 @@ extern "C" void app_main(void) {
     return sum;
   }();
 
-  // One line, valid JSON, ready to paste straight into the results file.
-  // Everything needed to reproduce or distrust this number is in it.
+  // One JSON line, ready to append to results/results.jsonl.
   printf(
       "\nMCUFIT_RESULT "
       "{\"schema\":1,"
