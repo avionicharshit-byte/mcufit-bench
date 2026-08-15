@@ -1,0 +1,51 @@
+name: build
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        kernels: [fast, slow]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build ${{ matrix.kernels }} binary
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: v5.5
+          target: esp32
+          command: >-
+            idf.py
+            -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.${{ matrix.kernels }}"
+            build
+            && idf.py merge-bin -o mcufit-bench-${{ matrix.kernels }}.bin
+
+      # Record what actually got built. Without this a measurement is a rumour.
+      - name: Record build provenance
+        run: |
+          {
+            echo "kernels:  ${{ matrix.kernels }}"
+            echo "commit:   ${{ github.sha }}"
+            echo "idf:      v5.5"
+            echo "target:   esp32"
+            echo "run:      ${{ github.run_id }}"
+            echo
+            echo "--- settings that matter ---"
+            grep -E 'CONFIG_(NN_|ESP_DEFAULT_CPU_FREQ_MHZ|COMPILER_OPTIMIZATION)' \
+              build/sdkconfig || true
+          } > build/provenance.txt
+          cat build/provenance.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mcufit-bench-${{ matrix.kernels }}
+          path: |
+            build/mcufit-bench-${{ matrix.kernels }}.bin
+            build/provenance.txt
+          if-no-files-found: error

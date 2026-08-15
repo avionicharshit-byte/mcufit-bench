@@ -1,0 +1,4 @@
+# Plain portable C kernels, no chip-specific tricks. This is what stock
+# TensorFlow Lite Micro does on a chip nobody has optimised for, which is the
+# situation most boards in mcufit's database are actually in.
+CONFIG_NN_ANSI_C=y
