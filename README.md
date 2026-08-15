@@ -35,8 +35,11 @@ mcufit now uses it by default.
 | interpreter overhead | 33,952 | 29,132 | 27,004 |
 | total | 89,248 | 84,428 | 82,300 |
 
-Run-to-run spread was 41 µs out of 474 ms, under 0.01%. One measurement per
-configuration is enough; repeats are not worth collecting.
+**It is deterministic.** Run-to-run spread is 41 µs out of 474 ms. Two boards
+of different silicon revisions, D0WDQ6 rev v1.0 and D0WD-V3 rev v3.1, returned
+byte-identical min, median, mean and max on both builds. So one measurement
+per chip, model, kernel library, clock and optimisation level is enough, and
+collecting repeats or per-board data would buy nothing.
 
 ## what it does
 
