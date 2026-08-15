@@ -1,4 +1,4 @@
-// Times a TFLite Micro inference on real silicon and prints one JSON record.
+// Times TFLite Micro inference on real silicon, one JSON record per model.
 
 #include <algorithm>
 #include <cinttypes>
@@ -24,11 +24,25 @@
 namespace {
 
 // Generous: an allocation failure should mean something real, not a small arena.
-constexpr size_t kArenaBytes = 136 * 1024;
+constexpr size_t kArenaBytes = 160 * 1024;
 constexpr int kWarmupRuns = 3;
 constexpr int kTimedRuns = 30;
 
 alignas(16) uint8_t g_arena[kArenaBytes];
+
+struct Model {
+  const char* name;
+  const unsigned char* data;
+  unsigned int len;
+  const char* sha256;
+};
+
+const Model kModels[] = {
+    {"person_detect.tflite", g_person_detect, g_person_detect_len, g_person_detect_sha256},
+    {"kws_ref_model.tflite", g_kws, g_kws_len, g_kws_sha256},
+    {"pretrainedResnet_quant.tflite", g_ic_resnet, g_ic_resnet_len, g_ic_resnet_sha256},
+    {"ad01_int8.tflite", g_ad, g_ad_len, g_ad_sha256},
+};
 
 #if defined(CONFIG_NN_OPTIMIZED)
 constexpr const char* kKernels = "esp-nn-optimized";
@@ -42,12 +56,8 @@ constexpr const char* kKernels = "unknown";
 constexpr const char* kOptLevel = "-O2";
 #elif defined(CONFIG_COMPILER_OPTIMIZATION_SIZE)
 constexpr const char* kOptLevel = "-Os";
-#elif defined(CONFIG_COMPILER_OPTIMIZATION_DEBUG)
-constexpr const char* kOptLevel = "-Og";
-#elif defined(CONFIG_COMPILER_OPTIMIZATION_NONE)
-constexpr const char* kOptLevel = "-O0";
 #else
-constexpr const char* kOptLevel = "unknown";
+constexpr const char* kOptLevel = "other";
 #endif
 
 const char* chip_name(const esp_chip_info_t& info) {
@@ -61,41 +71,26 @@ const char* chip_name(const esp_chip_info_t& info) {
   }
 }
 
-int64_t percentile(std::vector<int64_t> sorted, double p) {
-  const size_t index = static_cast<size_t>(p * (sorted.size() - 1));
-  return sorted[index];
-}
-
-}  // namespace
-
-extern "C" void app_main(void) {
-  esp_chip_info_t chip{};
-  esp_chip_info(&chip);
-
-  MicroPrintf("");
-  MicroPrintf("mcufit-bench: %s, %d core(s), rev %d, %d MHz, kernels=%s, %s",
-              chip_name(chip), chip.cores, chip.revision,
-              CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ, kKernels, kOptLevel);
-
-  const tflite::Model* model = tflite::GetModel(g_model);
+void run_one(const Model& m, const esp_chip_info_t& chip) {
+  const tflite::Model* model = tflite::GetModel(m.data);
   if (model->version() != TFLITE_SCHEMA_VERSION) {
-    MicroPrintf("FATAL: schema %lu, expected %d",
-                static_cast<unsigned long>(model->version()), TFLITE_SCHEMA_VERSION);
+    MicroPrintf("SKIP %s: schema mismatch", m.name);
     return;
   }
 
-  // The five operators person_detect uses.
-  tflite::MicroMutableOpResolver<5> resolver;
+  // Union of the operators across all four models.
+  tflite::MicroMutableOpResolver<7> resolver;
   resolver.AddConv2D();
   resolver.AddDepthwiseConv2D();
+  resolver.AddFullyConnected();
   resolver.AddAveragePool2D();
+  resolver.AddAdd();
   resolver.AddReshape();
   resolver.AddSoftmax();
 
   tflite::MicroInterpreter interpreter(model, resolver, g_arena, kArenaBytes);
   if (interpreter.AllocateTensors() != kTfLiteOk) {
-    MicroPrintf("FATAL: AllocateTensors failed, arena of %u B is too small",
-                static_cast<unsigned>(kArenaBytes));
+    MicroPrintf("SKIP %s: AllocateTensors failed", m.name);
     return;
   }
 
@@ -111,58 +106,52 @@ extern "C" void app_main(void) {
 
   std::vector<int64_t> samples;
   samples.reserve(kTimedRuns);
+  int64_t total = 0;
   for (int i = 0; i < kTimedRuns; ++i) {
     const int64_t start = esp_timer_get_time();
     const TfLiteStatus status = interpreter.Invoke();
     const int64_t elapsed = esp_timer_get_time() - start;
     if (status != kTfLiteOk) {
-      MicroPrintf("FATAL: Invoke failed on run %d", i);
+      MicroPrintf("SKIP %s: Invoke failed on run %d", m.name, i);
       return;
     }
     samples.push_back(elapsed);
+    total += elapsed;
     // Yield or the task watchdog fires on long inferences.
     vTaskDelay(pdMS_TO_TICKS(10));
   }
-
   std::sort(samples.begin(), samples.end());
-  const int64_t total = [&] {
-    int64_t sum = 0;
-    for (int64_t s : samples) sum += s;
-    return sum;
-  }();
 
-  // One JSON line, ready to append to results/results.jsonl.
   printf(
       "\nMCUFIT_RESULT "
-      "{\"schema\":1,"
-      "\"model\":\"person_detect.tflite\","
-      "\"model_sha256\":\"%s\","
-      "\"model_bytes\":%u,"
-      "\"target\":\"%s\","
-      "\"chip\":\"%s\","
-      "\"chip_revision\":%d,"
-      "\"cores\":%d,"
-      "\"cpu_mhz\":%d,"
-      "\"kernels\":\"%s\","
-      "\"opt_level\":\"%s\","
-      "\"idf_version\":\"%s\","
-      "\"arena_used_bytes\":%u,"
-      "\"free_heap_bytes\":%u,"
-      "\"runs\":%d,"
-      "\"min_us\":%" PRId64 ","
-      "\"p50_us\":%" PRId64 ","
-      "\"mean_us\":%" PRId64 ","
-      "\"max_us\":%" PRId64 "}\n",
-      g_model_sha256, g_model_len, CONFIG_IDF_TARGET, chip_name(chip),
-      chip.revision, chip.cores, CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ, kKernels,
-      kOptLevel, esp_get_idf_version(), static_cast<unsigned>(arena_used),
-      static_cast<unsigned>(esp_get_free_heap_size()), kTimedRuns,
-      samples.front(), percentile(samples, 0.5), total / kTimedRuns,
-      samples.back());
+      "{\"schema\":1,\"model\":\"%s\",\"model_sha256\":\"%s\",\"model_bytes\":%u,"
+      "\"target\":\"%s\",\"chip\":\"%s\",\"chip_revision\":%d,\"cores\":%d,"
+      "\"cpu_mhz\":%d,\"kernels\":\"%s\",\"opt_level\":\"%s\",\"idf_version\":\"%s\","
+      "\"arena_used_bytes\":%u,\"runs\":%d,\"min_us\":%" PRId64 ",\"p50_us\":%" PRId64
+      ",\"mean_us\":%" PRId64 ",\"max_us\":%" PRId64 "}\n",
+      m.name, m.sha256, m.len, CONFIG_IDF_TARGET, chip_name(chip), chip.revision,
+      chip.cores, CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ, kKernels, kOptLevel,
+      esp_get_idf_version(), static_cast<unsigned>(arena_used), kTimedRuns,
+      samples.front(), samples[kTimedRuns / 2], total / kTimedRuns, samples.back());
+
+  MicroPrintf("%s: median %lld ms, arena %u B", m.name,
+              static_cast<long long>(samples[kTimedRuns / 2] / 1000),
+              static_cast<unsigned>(arena_used));
+}
+
+}  // namespace
+
+extern "C" void app_main(void) {
+  esp_chip_info_t chip{};
+  esp_chip_info(&chip);
 
   MicroPrintf("");
-  MicroPrintf("median %lld ms per inference (%s)",
-              static_cast<long long>(percentile(samples, 0.5) / 1000), kKernels);
-  MicroPrintf("arena actually used: %u B", static_cast<unsigned>(arena_used));
-  MicroPrintf("done. copy the MCUFIT_RESULT line above.");
+  MicroPrintf("mcufit-bench: %s, %d core(s), rev %d, %d MHz, kernels=%s, %s",
+              chip_name(chip), chip.cores, chip.revision,
+              CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ, kKernels, kOptLevel);
+
+  for (const Model& m : kModels) run_one(m, chip);
+
+  MicroPrintf("");
+  MicroPrintf("done. %d models.", (int)(sizeof(kModels) / sizeof(kModels[0])));
 }
