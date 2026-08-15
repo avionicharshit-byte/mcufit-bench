@@ -6,6 +6,7 @@
 #include "tensorflow/lite/micro/micro_interpreter.h"
 #include "tensorflow/lite/micro/micro_log.h"
 #include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
+#include "tensorflow/lite/micro/micro_profiler_interface.h"
 #include "tensorflow/lite/schema/schema_generated.h"
 
 #include "model_data.h"
@@ -31,6 +32,53 @@ const Model kModels[] = {
     {"pretrainedResnet_quant.tflite", g_ic_resnet, g_ic_resnet_len, g_ic_resnet_sha256},
     {"ad01_int8.tflite", g_ad, g_ad_len, g_ad_sha256},
 };
+
+// TFLM wraps each operator's invoke in a ScopedMicroProfiler tagged with the
+// operator name, so totalling per tag gives the cost of each layer type.
+class TagProfiler : public tflite::MicroProfilerInterface {
+ public:
+  static constexpr int kMaxTags = 16;
+
+  uint32_t BeginEvent(const char* tag) override {
+    tag_ = tag;
+    start_ = micros();
+    return 0;
+  }
+
+  void EndEvent(uint32_t) override {
+    const uint32_t elapsed = micros() - start_;
+    for (int i = 0; i < count_; ++i) {
+      if (strcmp(tags_[i], tag_) == 0) {
+        total_us_[i] += elapsed;
+        calls_[i] += 1;
+        return;
+      }
+    }
+    if (count_ < kMaxTags) {
+      tags_[count_] = tag_;
+      total_us_[count_] = elapsed;
+      calls_[count_] = 1;
+      ++count_;
+    }
+  }
+
+  void reset() { count_ = 0; }
+  int count() const { return count_; }
+  const char* tag(int i) const { return tags_[i]; }
+  uint64_t total_us(int i) const { return total_us_[i]; }
+  int calls(int i) const { return calls_[i]; }
+
+ private:
+  const char* tag_ = nullptr;
+  uint32_t start_ = 0;
+  const char* tags_[kMaxTags] = {};
+  uint64_t total_us_[kMaxTags] = {};
+  int calls_[kMaxTags] = {};
+  int count_ = 0;
+};
+
+void profileOne(const Model& m, const tflite::Model* model,
+                tflite::MicroMutableOpResolver<7>& resolver);
 
 void sortAscending(uint32_t* v, int n) {
   for (int i = 1; i < n; ++i) {
@@ -107,6 +155,40 @@ void runOne(const Model& m) {
   Serial.print(m.name); Serial.print(": median ");
   Serial.print(samples[kTimedRuns / 2] / 1000);
   Serial.print(" ms, arena "); Serial.println((unsigned)arenaUsed);
+
+  profileOne(m, model, resolver);
+}
+
+// A second interpreter with a profiler attached, so per-layer cost is measured
+// rather than inferred from whole-model totals.
+void profileOne(const Model& m, const tflite::Model* model,
+                tflite::MicroMutableOpResolver<7>& resolver) {
+  static TagProfiler profiler;
+  profiler.reset();
+
+  tflite::MicroInterpreter interpreter(model, resolver, g_arena, kArenaBytes,
+                                       nullptr, &profiler);
+  if (interpreter.AllocateTensors() != kTfLiteOk) {
+    Serial.print("SKIP profile "); Serial.println(m.name);
+    return;
+  }
+  memset(interpreter.input(0)->data.data, 0, interpreter.input(0)->bytes);
+
+  interpreter.Invoke();
+  profiler.reset();
+
+  const int kProfileRuns = 5;
+  for (int i = 0; i < kProfileRuns; ++i) interpreter.Invoke();
+
+  for (int i = 0; i < profiler.count(); ++i) {
+    Serial.print("MCUFIT_LAYER {\"model\":\""); Serial.print(m.name);
+    Serial.print("\",\"target\":\"nano33ble\",\"kernels\":\"cmsis-nn-or-reference\"");
+    Serial.print(",\"cpu_mhz\":64,\"op\":\""); Serial.print(profiler.tag(i));
+    Serial.print("\",\"calls_per_inference\":"); Serial.print(profiler.calls(i) / kProfileRuns);
+    Serial.print(",\"us_per_inference\":");
+    Serial.print((uint32_t)(profiler.total_us(i) / kProfileRuns));
+    Serial.println("}");
+  }
 }
 
 }  // namespace
