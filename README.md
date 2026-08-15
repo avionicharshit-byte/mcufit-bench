@@ -78,6 +78,22 @@ which needs no Python at all.
 If no serial port appears, check the cable carries data and go straight into
 the machine rather than through a hub.
 
+## models
+
+Redistributed here so the benchmark is reproducible without fetching anything.
+All Apache 2.0.
+
+| file | source |
+| --- | --- |
+| `person_detect.tflite` | [tflite-micro](https://github.com/tensorflow/tflite-micro) visual wake words reference model |
+| `kws_ref_model.tflite` | [MLPerf Tiny](https://github.com/mlcommons/tiny) keyword spotting |
+| `pretrainedResnet_quant.tflite` | MLPerf Tiny image classification, ResNet-8 on CIFAR-10 |
+| `ad01_int8.tflite` | MLPerf Tiny anomaly detection |
+
+## licence
+
+MIT, see [LICENSE](LICENSE). The models above keep their own Apache 2.0 terms.
+
 ## regenerating the model array
 
 Committed as a 16-byte-aligned C array because TFLM reads it in place from
