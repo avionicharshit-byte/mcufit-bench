@@ -85,10 +85,10 @@ All Apache 2.0.
 
 | file | source |
 | --- | --- |
-| `person_detect.tflite` | [tflite-micro](https://github.com/tensorflow/tflite-micro) visual wake words reference model |
-| `kws_ref_model.tflite` | [MLPerf Tiny](https://github.com/mlcommons/tiny) keyword spotting |
-| `pretrainedResnet_quant.tflite` | MLPerf Tiny image classification, ResNet-8 on CIFAR-10 |
-| `ad01_int8.tflite` | MLPerf Tiny anomaly detection |
+| `models/person_detect.tflite` | [tflite-micro](https://github.com/tensorflow/tflite-micro) visual wake words reference model |
+| `models/kws.tflite` | [MLPerf Tiny](https://github.com/mlcommons/tiny) keyword spotting |
+| `models/ic_resnet.tflite` | MLPerf Tiny image classification, ResNet-8 on CIFAR-10 |
+| `models/ad.tflite` | MLPerf Tiny anomaly detection |
 
 ## licence
 
@@ -100,5 +100,8 @@ Committed as a 16-byte-aligned C array because TFLM reads it in place from
 flash and CMake's `EMBED_FILES` does not guarantee alignment.
 
 ```bash
-python3 scripts/gen_model_array.py models/person_detect.tflite main/model_data.cc
+for m in person_detect kws ic_resnet ad; do
+  python3 scripts/gen_model_array.py models/$m.tflite main/model_$m.cc $m
+done
+cp main/model_*.cc arduino/mcufit_bench_nano/   # rename .cc to .cpp for Arduino
 ```
