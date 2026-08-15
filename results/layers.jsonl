@@ -1,0 +1,19 @@
+{"schema":1,"note":"per-layer timings. us_per_inference is the total for all calls of that operator in one inference, averaged over 5 runs."}
+{"model":"person_detect.tflite","target":"esp32","kernels":"esp-nn-optimized","cpu_mhz":240,"op":"DEPTHWISE_CONV_2D","calls_per_inference":14,"us_per_inference":92258,"board_label":"devkit-v1-a","date":"2026-08-16"}
+{"model":"person_detect.tflite","target":"esp32","kernels":"esp-nn-optimized","cpu_mhz":240,"op":"CONV_2D","calls_per_inference":14,"us_per_inference":381154,"board_label":"devkit-v1-a","date":"2026-08-16"}
+{"model":"person_detect.tflite","target":"esp32","kernels":"esp-nn-optimized","cpu_mhz":240,"op":"AVERAGE_POOL_2D","calls_per_inference":1,"us_per_inference":377,"board_label":"devkit-v1-a","date":"2026-08-16"}
+{"model":"person_detect.tflite","target":"esp32","kernels":"esp-nn-optimized","cpu_mhz":240,"op":"RESHAPE","calls_per_inference":1,"us_per_inference":58,"board_label":"devkit-v1-a","date":"2026-08-16"}
+{"model":"person_detect.tflite","target":"esp32","kernels":"esp-nn-optimized","cpu_mhz":240,"op":"SOFTMAX","calls_per_inference":1,"us_per_inference":392,"board_label":"devkit-v1-a","date":"2026-08-16"}
+{"model":"kws_ref_model.tflite","target":"esp32","kernels":"esp-nn-optimized","cpu_mhz":240,"op":"CONV_2D","calls_per_inference":5,"us_per_inference":135404,"board_label":"devkit-v1-a","date":"2026-08-16"}
+{"model":"kws_ref_model.tflite","target":"esp32","kernels":"esp-nn-optimized","cpu_mhz":240,"op":"DEPTHWISE_CONV_2D","calls_per_inference":4,"us_per_inference":25594,"board_label":"devkit-v1-a","date":"2026-08-16"}
+{"model":"kws_ref_model.tflite","target":"esp32","kernels":"esp-nn-optimized","cpu_mhz":240,"op":"AVERAGE_POOL_2D","calls_per_inference":1,"us_per_inference":518,"board_label":"devkit-v1-a","date":"2026-08-16"}
+{"model":"kws_ref_model.tflite","target":"esp32","kernels":"esp-nn-optimized","cpu_mhz":240,"op":"RESHAPE","calls_per_inference":1,"us_per_inference":50,"board_label":"devkit-v1-a","date":"2026-08-16"}
+{"model":"kws_ref_model.tflite","target":"esp32","kernels":"esp-nn-optimized","cpu_mhz":240,"op":"FULLY_CONNECTED","calls_per_inference":1,"us_per_inference":286,"board_label":"devkit-v1-a","date":"2026-08-16"}
+{"model":"kws_ref_model.tflite","target":"esp32","kernels":"esp-nn-optimized","cpu_mhz":240,"op":"SOFTMAX","calls_per_inference":1,"us_per_inference":359,"board_label":"devkit-v1-a","date":"2026-08-16"}
+{"model":"pretrainedResnet_quant.tflite","target":"esp32","kernels":"esp-nn-optimized","cpu_mhz":240,"op":"CONV_2D","calls_per_inference":9,"us_per_inference":681829,"board_label":"devkit-v1-a","date":"2026-08-16"}
+{"model":"pretrainedResnet_quant.tflite","target":"esp32","kernels":"esp-nn-optimized","cpu_mhz":240,"op":"ADD","calls_per_inference":3,"us_per_inference":24932,"board_label":"devkit-v1-a","date":"2026-08-16"}
+{"model":"pretrainedResnet_quant.tflite","target":"esp32","kernels":"esp-nn-optimized","cpu_mhz":240,"op":"AVERAGE_POOL_2D","calls_per_inference":1,"us_per_inference":350,"board_label":"devkit-v1-a","date":"2026-08-16"}
+{"model":"pretrainedResnet_quant.tflite","target":"esp32","kernels":"esp-nn-optimized","cpu_mhz":240,"op":"RESHAPE","calls_per_inference":1,"us_per_inference":46,"board_label":"devkit-v1-a","date":"2026-08-16"}
+{"model":"pretrainedResnet_quant.tflite","target":"esp32","kernels":"esp-nn-optimized","cpu_mhz":240,"op":"FULLY_CONNECTED","calls_per_inference":1,"us_per_inference":282,"board_label":"devkit-v1-a","date":"2026-08-16"}
+{"model":"pretrainedResnet_quant.tflite","target":"esp32","kernels":"esp-nn-optimized","cpu_mhz":240,"op":"SOFTMAX","calls_per_inference":1,"us_per_inference":404,"board_label":"devkit-v1-a","date":"2026-08-16"}
+{"model":"ad01_int8.tflite","target":"esp32","kernels":"esp-nn-optimized","cpu_mhz":240,"op":"FULLY_CONNECTED","calls_per_inference":10,"us_per_inference":49059,"board_label":"devkit-v1-a","date":"2026-08-16"}
