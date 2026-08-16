@@ -1,0 +1,76 @@
+name: New board measurement
+description: You ran the benchmark on a board that is not in results/ yet
+title: "board: "
+labels: ["new board"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks. This is how the board database grows.
+
+        If you would rather open a pull request, [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md)
+        has the four commands. An issue is fine too, and someone will file the
+        records for you.
+
+  - type: input
+    id: board
+    attributes:
+      label: Board
+      description: Whatever it is sold as.
+      placeholder: Raspberry Pi Pico 2
+    validations:
+      required: true
+
+  - type: input
+    id: chip
+    attributes:
+      label: Chip and clock
+      description: >
+        The real clock, not the datasheet maximum. Every throughput figure
+        divides by it, so a wrong number here is worse than no report at all.
+      placeholder: RP2350, Cortex-M33, 150 MHz
+    validations:
+      required: true
+
+  - type: input
+    id: toolchain
+    attributes:
+      label: Core and TFLM library, with versions
+      description: >
+        Timings are deterministic within one binary and not across binaries,
+        so the build has to travel with the measurement.
+      placeholder: rp2040:rp2040@4.4.0, Chirale_TensorFlowLite@2.0.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: capture
+    attributes:
+      label: Serial output
+      description: >
+        The whole capture from reset, not just the MCUFIT_ lines. Paste it as
+        is; scripts/ingest.py will pick out what it needs.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything that did not work
+      description: >
+        Models that would not fit, operators that fell back, an arena you had
+        to shrink. A board that fails is still a result and gets recorded as
+        one.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: rules
+    attributes:
+      label: Confirmations
+      options:
+        - label: This ran on physical hardware, not a simulator or a host build.
+          required: true
+        - label: The chip name and clock above are read from the board, not guessed.
+          required: true

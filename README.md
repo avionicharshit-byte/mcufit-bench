@@ -157,13 +157,32 @@ Two ESP32 build variants differ **only** in the kernel library, with 240 MHz and
 
 ## adding a board
 
-Roughly 15 minutes. Build the firmware for it, flash, capture the
-`MCUFIT_LAYER` lines, run them through `scripts/layer_throughput.py`, and open a
-PR with the raw records. Numbers that land in `results/` feed mcufit's
-`measured.yaml`.
+Three boards is not enough, and the gaps are the point of the finding above: a
+chip cannot be ranked without measuring it. If you own a microcontroller that
+is not in `results/`, it takes about fifteen minutes and needs only
+`arduino-cli` and a USB cable.
 
-The most interesting board still unmeasured is the **ESP32-S3**, where esp-nn
-ships hand-written assembly rather than generic C.
+```bash
+arduino-cli lib install "Chirale_TensorFlowLite"   # or tflm_esp32 for ESP32s
+python3 scripts/prepare_arduino.py --target rp2040 --out /tmp/mcufit_bench
+arduino-cli compile --fqbn <FQBN> /tmp/mcufit_bench
+arduino-cli upload -p <PORT> --fqbn <FQBN> /tmp/mcufit_bench
+arduino-cli monitor -p <PORT> --config baudrate=115200 | tee /tmp/capture.txt
+python3 scripts/ingest.py /tmp/capture.txt --write
+```
+
+`ingest.py` refuses anything that would poison the database: an unrecognised
+chip, a clock of zero, a model whose bytes do not match `models/`. Then open a
+PR with the changed files in `results/`.
+
+Whole families are still blank, and one board answers for its whole family:
+Cortex-M7, Xtensa LX7, the RISC-V ESP32s, Cortex-M0+, Cortex-M33 and
+Cortex-M3. The one we want most is the **ESP32-S3**, where esp-nn ships
+hand-written assembly rather than generic C, so it is the board most likely to
+break the current model rather than confirm it.
+
+Full instructions, and why simulator numbers are not accepted, in
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 <details>
 <summary><b>Notes that cost time</b></summary>
