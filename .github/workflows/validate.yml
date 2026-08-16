@@ -1,0 +1,37 @@
+name: validate mcufit
+
+# Checks mcufit's estimates against every device measurement in results/.
+# Both estimator bugs found so far came from validating against one model on one
+# board, so this runs the whole set and fails if any estimate lands BELOW the
+# silicon, which is the direction that makes a fit check say yes wrongly.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # mcufit is installed from its main branch, so this catches a regression
+    # there even on a week when nothing here changes.
+    - cron: "0 6 * * 1"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # The wasm arena measurement runs under node. Without it mcufit silently
+      # falls back to the static estimator, which is the thing being checked.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install mcufit from main
+        run: pip install "mcufit @ git+https://github.com/avionicharshit-byte/mcufit@main"
+
+      - name: Validate against every device measurement
+        run: python3 scripts/validate_mcufit.py --strict
