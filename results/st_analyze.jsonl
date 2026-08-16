@@ -1,0 +1,5 @@
+{"schema":1,"note":"ST Edge AI Developer Cloud 'analyze' output for the four models. NOT device timings and NOT TFLM: ST's own runtime, reported here only as an independent cross-check on MAC counts and as a second opinion on activation planning. Nothing here feeds measured.yaml.","source":"stm32ai-cs.st.com, ST Edge AI Core 4.0.1-20581 7ed50de05, tool 12.0.1, target stm32f4, --optimization balanced","date":"2026-08-16"}
+{"model":"person_detect.tflite","runtime":"st-edge-ai","macc":7162960,"flash_bytes":255369,"weights_kib":213.79,"library_kib":36,"ram_bytes":41456,"activations_kib":40.19,"date":"2026-08-16"}
+{"model":"kws.tflite","runtime":"st-edge-ai","macc":2665536,"flash_bytes":55088,"weights_kib":23.8,"library_kib":28,"ram_bytes":18556,"activations_bytes":18252,"date":"2026-08-16"}
+{"model":"ic_resnet.tflite","runtime":"st-edge-ai","macc":12534896,"flash_bytes":119441,"weights_kib":76.9,"library_kib":38,"ram_bytes":44712,"activations_kib":42.41,"date":"2026-08-16"}
+{"model":"ad.tflite","runtime":"st-edge-ai","macc":265864,"flash_bytes":279410,"weights_kib":264.53,"library_kib":7,"ram_bytes":2048,"activations_kib":2,"date":"2026-08-16"}
